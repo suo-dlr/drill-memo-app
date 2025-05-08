@@ -1,6 +1,8 @@
 import re
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from db import (
     delete_memo_by_id,
@@ -26,32 +28,38 @@ from protocols import (
 app = FastAPI()
 
 
-@app.post("/api/memos", response_model=InsertResponse, status_code=201)
-async def insert(query: InsertQuery, authorization: str | None = Header(default=None)):
-    if authorization is None:
-        raise HTTPException(401)
-    token = re.match("Bearer\s(\S*)", authorization)
-    if token is None:
-        raise HTTPException(401)
-    print(token.group(1))
-    if not verify_token(token.group(1)):
-        raise HTTPException(401)
+class AuthenticationMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if not request.url.path.startswith("/api/memos"):
+            return await call_next(request)
 
+        auth_exception = JSONResponse(
+            content={"detail": "Unauthorized"}, status_code=401
+        )
+
+        auth_header = request.headers.get("Authorization")
+        if auth_header is None:
+            return auth_exception
+        token = re.match("Bearer\s(\S*)", auth_header)
+        if token is None:
+            return auth_exception
+        if not verify_token(token.group(1)):
+            return auth_exception
+
+        return await call_next(request)
+
+
+app.add_middleware(AuthenticationMiddleware)
+
+
+@app.post("/api/memos", response_model=InsertResponse, status_code=201)
+async def insert(query: InsertQuery):
     memo = insert_memo(query.title, query.content)
     return InsertResponse.model_validate(memo)
 
 
 @app.get("/api/memos/{id}", response_model=GetResponse, status_code=200)
-async def get_memo(id: int, authorization: str | None = Header(default=None)):
-    if authorization is None:
-        raise HTTPException(401)
-    token = re.match("Bearer\s(\S*)", authorization)
-    if token is None:
-        raise HTTPException(401)
-    print(token.group(1))
-    if not verify_token(token.group(1)):
-        raise HTTPException(401)
-
+async def get_memo(id: int):
     memo = select_memo_by_id(id)
     if memo is not None:
         return GetResponse.model_validate(memo)
@@ -60,18 +68,7 @@ async def get_memo(id: int, authorization: str | None = Header(default=None)):
 
 
 @app.put("/api/memos/{id}", response_model=UpdateResponse, status_code=200)
-async def update_memo(
-    id: int, query: UpdateQuery, authorization: str | None = Header(default=None)
-):
-    if authorization is None:
-        raise HTTPException(401)
-    token = re.match("Bearer\s(\S*)", authorization)
-    if token is None:
-        raise HTTPException(401)
-    print(token.group(1))
-    if not verify_token(token.group(1)):
-        raise HTTPException(401)
-
+async def update_memo(id: int, query: UpdateQuery):
     memo = update_memo_by_id(id, query.title, query.content)
     if memo is None:
         raise HTTPException(status_code=404)
@@ -80,15 +77,7 @@ async def update_memo(
 
 
 @app.delete("/api/memos/{id}", status_code=204)
-async def delete_memo(id: int, authorization: str | None = Header(default=None)):
-    if authorization is None:
-        raise HTTPException(401)
-    token = re.match("Bearer\s(\S*)", authorization)
-    if token is None:
-        raise HTTPException(401)
-    if not verify_token(token.group(1)):
-        raise HTTPException(401)
-
+async def delete_memo(id: int):
     if not delete_memo_by_id(id):
         raise HTTPException(status_code=404)
 
