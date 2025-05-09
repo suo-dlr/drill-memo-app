@@ -20,3 +20,24 @@ class BaseResponse(BaseModel):
 
 InsertQuery = UpdateQuery = BaseQuery
 InsertResponse = GetResponse = UpdateResponse = BaseResponse
+
+
+class RegisterQuery(BaseModel):
+    username: str
+    password: str
+
+
+class RegisterResponse(BaseModel):
+    id: int
+    username: str
+
+    model_config = {"from_attributes": True}
+
+
+class LoginQuery(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    token: str

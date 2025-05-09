@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS memo(
 );
 
 
-INSERT INTO memo (title, content)
-VALUES
-    ("memo1", "content1")
+CREATE TABLE IF NOT EXISTS users(
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(20) NOT NULL UNIQUE,
+    password VARCHAR(100) NOT NULL
+);
