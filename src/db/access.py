@@ -1,11 +1,5 @@
 import datetime
-import os
-from datetime import timedelta
 
-from dotenv import load_dotenv
-from fastapi.security import OAuth2PasswordBearer
-from jose import jwt
-from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -13,15 +7,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import Column
 from sqlalchemy.types import INTEGER, TEXT, TIMESTAMP, VARCHAR
 
+from auth import create_access_token, hash_password, verify_password, verify_token
+
 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
-
-load_dotenv()
-SECRET_KEY = os.environ.get("SECRET_KEY")
-ALG = "HS256"
 
 dialect = "mysql"
 username = "root"
@@ -31,9 +23,6 @@ port = "3306"
 database = "db_memo"
 engine = create_engine(f"{dialect}://{username}:{password}@{host}:{port}/{database}")
 Base = declarative_base()
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 class Memo(Base):
@@ -100,23 +89,11 @@ def register_user(user: str, password: str) -> User | None:
     if _exists_user(user):
         return None
 
-    password_hash = pwd_context.hash(password)
+    password_hash = hash_password(password)
     user = User(username=user, password=password_hash)
     session.add(user)
     session.commit()
     return user
-
-
-def create_access_token(
-    data: dict[str, str], expires_delta: timedelta = timedelta(minutes=15)
-):
-    to_encode = data.copy()
-    expire = datetime.datetime.now() + expires_delta
-
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALG)
-    print(encoded_jwt)
-    return encoded_jwt
 
 
 def login_user(user: str, password: str) -> str | None:
@@ -124,18 +101,15 @@ def login_user(user: str, password: str) -> str | None:
     if row is None:
         return None
     hashed = row.tuple()[0]
-    if pwd_context.verify(password, hashed):
+    if verify_password(password, hashed):
         return create_access_token({"sub": user})
     else:
         return None
 
 
-def verify_token(token: str) -> bool:
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALG])
-        username = payload.get("sub")
-        if username is None:
-            return False
-    except Exception:
+def verify_user(token: str) -> bool:
+    user = verify_token(token)
+    print(user)
+    if user is None:
         return False
-    return _exists_user(username)
+    return _exists_user(user)

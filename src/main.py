@@ -11,7 +11,7 @@ from db import (
     register_user,
     select_memo_by_id,
     update_memo_by_id,
-    verify_token,
+    verify_user,
 )
 from protocols import (
     GetResponse,
@@ -43,7 +43,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         token = re.match("Bearer\s(\S*)", auth_header)
         if token is None:
             return auth_exception
-        if not verify_token(token.group(1)):
+        if not verify_user(token.group(1)):
             return auth_exception
 
         return await call_next(request)
