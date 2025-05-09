@@ -63,8 +63,7 @@ def update_memo_by_id(id: int, title: str, content: str | None) -> Memo | None:
     if memo is None:
         return None
 
-    if title is not None:
-        memo.title = title
+    memo.title = title
     if content is not None:
         memo.content = content
     session.commit()
@@ -109,7 +108,6 @@ def login_user(user: str, password: str) -> str | None:
 
 def verify_user(token: str) -> bool:
     user = verify_token(token)
-    print(user)
     if user is None:
         return False
     return _exists_user(user)
